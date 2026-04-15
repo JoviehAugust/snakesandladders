@@ -1,0 +1,115 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
+
+/**
+ *
+ * @author ADMIN
+ */
+
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.Random;
+import javax.swing.Timer;
+
+public class GamePanel extends JPanel {
+    private final Board board;
+    private final JButton rollBtn;
+    private final JButton newBtn;
+    private final JLabel statusLabel;
+    private final JLabel diceLabel;
+    private int currentPlayer = 1; // 1=red, 2=blue
+    private final int[] positions = {0, 0, 0}; // unused index0, player1, player2
+    private final Random rand = new Random();
+
+    public GamePanel() {
+        setLayout(new BorderLayout());
+        board = new Board(600, 600);
+        add(board, BorderLayout.CENTER);
+
+        JPanel control = new JPanel();
+        rollBtn = new JButton("Roll Dice");
+        newBtn = new JButton("New Game");
+        diceLabel = new JLabel("Dice: -");
+        statusLabel = new JLabel("Red's turn");
+
+        rollBtn.addActionListener(e -> rollDice());
+        newBtn.addActionListener(e -> resetGame());
+
+        control.add(rollBtn);
+        control.add(newBtn);
+        control.add(diceLabel);
+        control.add(statusLabel);
+
+        add(control, BorderLayout.SOUTH);
+    }
+
+    private void resetGame() {
+        positions[1] = positions[2] = 0;
+        currentPlayer = 1;
+        diceLabel.setText("Dice: -");
+        statusLabel.setText("Red's turn");
+        board.setPositions(positions[1], positions[2]);
+        board.repaint();
+        rollBtn.setEnabled(true);
+    }
+
+    private void rollDice() {
+        rollBtn.setEnabled(false);
+        int d = rand.nextInt(6) + 1;
+        diceLabel.setText("Dice: " + d);
+        int player = currentPlayer;
+        int target = positions[player] + d;
+        if (target > 100) {
+            // can't move if past 100
+            statusLabel.setText((player==1? "Red":"Blue") + " rolled " + d + " (can't move)");
+            switchTurn();
+            rollBtn.setEnabled(true);
+            return;
+        }
+        // animate move step by step
+        Timer t = new Timer(200, null);
+        final int steps = d;
+        final int[] stepCount = {0};
+        t.addActionListener(evt -> {
+            if (stepCount[0] < steps) {
+                positions[player]++;
+                board.setPositions(positions[1], positions[2]);
+                board.repaint();
+                stepCount[0]++;
+            } else {
+                ((Timer)evt.getSource()).stop();
+                // check snakes or ladders
+                int newPos = board.checkSnakesAndLadders(positions[player]);
+                if (newPos != positions[player]) {
+                    // animate jump (instant)
+                    positions[player] = newPos;
+                    board.setPositions(positions[1], positions[2]);
+                    board.repaint();
+                    statusLabel.setText((player==1? "Red":"Blue") + " encountered a snake/ladder!");
+                } else {
+                    statusLabel.setText((player==1? "Red":"Blue") + " moved to " + positions[player]);
+                }
+                if (positions[player] == 100) {
+                    JOptionPane.showMessageDialog(this, (player==1? "Red":"Blue") + " wins!");
+                    rollBtn.setEnabled(false);
+                    statusLabel.setText((player==1? "Red":"Blue") + " wins!");
+                } else {
+                    switchTurn();
+                    rollBtn.setEnabled(true);
+                }
+            }
+        });
+        t.setInitialDelay(0);
+        t.start();
+    }
+
+    private void switchTurn() {
+        currentPlayer = (currentPlayer == 1) ? 2 : 1;
+        statusLabel.setText((currentPlayer==1? "Red":"Blue") + "'s turn");
+    }
+}
+
