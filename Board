@@ -1,0 +1,182 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
+
+/**
+ *
+ * @author ADMIN
+ */
+
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.geom.*;
+import java.util.HashMap;
+import java.util.Map;
+
+public class Board extends JPanel {
+    private final int width;
+    private final int height;
+    private final int cellSize;
+    private int p1Pos = 0, p2Pos = 0;
+    private final Map<Integer,Integer> jumps = new HashMap<>(); // snakes and ladders: start->end
+
+    public Board(int w, int h) {
+        this.width = w;
+        this.height = h;
+        setPreferredSize(new Dimension(width, height));
+        this.cellSize = Math.min(width, height) / 10;
+        initJumps();
+    }
+
+    private void initJumps() {
+        // some sample ladders (start < end)
+        jumps.put(4, 14);
+        jumps.put(9, 31);
+        jumps.put(20, 38);
+        jumps.put(28, 84);
+        jumps.put(40, 59);
+        jumps.put(63, 81);
+        jumps.put(71, 91);
+
+        // some sample snakes (start > end)
+        jumps.put(17, 7);
+        jumps.put(54, 34);
+        jumps.put(62, 19);
+        jumps.put(64, 60);
+        jumps.put(87, 36);
+        jumps.put(93, 73);
+        jumps.put(95, 75);
+        jumps.put(99, 78);
+    }
+
+    public void setPositions(int p1, int p2) {
+        this.p1Pos = p1;
+        this.p2Pos = p2;
+    }
+
+    public int checkSnakesAndLadders(int pos) {
+        if (jumps.containsKey(pos)) return jumps.get(pos);
+        return pos;
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // draw board grid 10x10 with alternating colors
+        boolean leftToRight = true;
+        int num = 1;
+        for (int row = 9; row >= 0; row--) {
+            if (leftToRight) {
+                for (int col = 0; col < 10; col++) {
+                    drawCell(g2, col, row, num++);
+                }
+            } else {
+                for (int col = 9; col >= 0; col--) {
+                    drawCell(g2, col, row, num++);
+                }
+            }
+            leftToRight = !leftToRight;
+        }
+
+        // draw snakes and ladders
+        for (Map.Entry<Integer,Integer> e : jumps.entrySet()) {
+            int start = e.getKey();
+            int end = e.getValue();
+            Point s = cellCenter(start);
+            Point t = cellCenter(end);
+            if (start < end) drawLadder(g2, s, t);
+            else drawSnake(g2, s, t);
+        }
+
+        // draw player tokens
+        if (p1Pos > 0) drawToken(g2, p1Pos, Color.RED, -8);
+        if (p2Pos > 0) drawToken(g2, p2Pos, Color.BLUE, 8);
+
+        g2.dispose();
+    }
+
+    private void drawCell(Graphics2D g2, int col, int row, int number) {
+        int x = col * cellSize;
+        int y = row * cellSize;
+        // background color pattern
+        Color[] colors = new Color[] {new Color(240,128,128), new Color(144,238,144), new Color(135,206,250), new Color(255,255,153)};
+        int idx = (col + row) % colors.length;
+        g2.setColor(colors[idx]);
+        g2.fillRect(x, y, cellSize, cellSize);
+        g2.setColor(Color.BLACK);
+        g2.drawRect(x, y, cellSize, cellSize);
+        // draw number
+        g2.setFont(new Font("SansSerif", Font.BOLD, Math.max(9, cellSize/6)));
+        g2.drawString(Integer.toString(number), x + 4, y + 14);
+    }
+
+    private Point cellCenter(int number) {
+        if (number < 1) return new Point(-10,-10);
+        int n = number - 1;
+        int row = 9 - (n / 10);
+        int indexInRow = n % 10;
+        boolean leftToRight = ((9 - row) % 2 == 0); // because numbering alternates
+        int col = leftToRight ? indexInRow : 9 - indexInRow;
+        int cx = col * cellSize + cellSize/2;
+        int cy = row * cellSize + cellSize/2;
+        return new Point(cx, cy);
+    }
+
+    private void drawToken(Graphics2D g2, int number, Color color, int xOffset) {
+        Point c = cellCenter(number);
+        int r = Math.max(10, cellSize/6);
+        g2.setColor(color);
+        g2.fillOval(c.x + xOffset - r/2, c.y - r/2, r, r);
+        g2.setColor(Color.BLACK);
+        g2.drawOval(c.x + xOffset - r/2, c.y - r/2, r, r);
+    }
+
+    private void drawLadder(Graphics2D g2, Point s, Point t) {
+        g2.setStroke(new BasicStroke(6f));
+        // two rails
+        double dx = t.x - s.x;
+        double dy = t.y - s.y;
+        double len = Math.hypot(dx, dy);
+        double ux = -dy / len;
+        double uy = dx / len;
+        int railOffset = Math.min(12, cellSize/6);
+        int x1a = (int)(s.x + ux*railOffset), y1a = (int)(s.y + uy*railOffset);
+        int x1b = (int)(s.x - ux*railOffset), y1b = (int)(s.y - uy*railOffset);
+        int x2a = (int)(t.x + ux*railOffset), y2a = (int)(t.y + uy*railOffset);
+        int x2b = (int)(t.x - ux*railOffset), y2b = (int)(t.y - uy*railOffset);
+        g2.setColor(new Color(139,69,19)); // brown
+        g2.drawLine(x1a, y1a, x2a, y2a);
+        g2.drawLine(x1b, y1b, x2b, y2b);
+        // rungs
+        int rungs = Math.max(3, (int)(len / 40));
+        for (int i = 1; i < rungs; i++) {
+            double f = (double)i / rungs;
+            int rx1 = (int)(x1a + (x2a-x1a)*f), ry1 = (int)(y1a + (y2a-y1a)*f);
+            int rx2 = (int)(x1b + (x2b-x1b)*f), ry2 = (int)(y1b + (y2b-y1b)*f);
+            g2.drawLine(rx1, ry1, rx2, ry2);
+        }
+    }
+
+    private void drawSnake(Graphics2D g2, Point s, Point t) {
+        g2.setStroke(new BasicStroke(8f));
+        g2.setColor(new Color(34,139,34)); // greenish
+        // draw a curved snake using quad curves
+        int cx1 = (s.x + t.x)/2;
+        int cy1 = (s.y + t.y)/2 - Math.abs(s.x - t.x)/2 - 20;
+        QuadCurve2D q = new QuadCurve2D.Float(s.x, s.y, cx1, cy1, t.x, t.y);
+        g2.draw(q);
+        // draw head at start if start > end (snake goes down)
+        int headSize = Math.max(12, cellSize/5);
+        g2.fillOval(s.x - headSize/2, s.y - headSize/2, headSize, headSize);
+        // eye
+        g2.setColor(Color.WHITE);
+        g2.fillOval(s.x - headSize/6, s.y - headSize/6, headSize/6, headSize/6);
+    }
+}
+
+
